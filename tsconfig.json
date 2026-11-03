@@ -12,14 +12,13 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
-      "@legal-aid-ai/shared": ["packages/shared/src"],
-      "@legal-aid-ai/shared/*": ["packages/shared/src/*"],
-      "@legal-aid-ai/ai": ["packages/ai/src"],
-      "@legal-aid-ai/ai/*": ["packages/ai/src/*"],
-      "@legal-aid-ai/legal-research": ["packages/legal-research/src"],
-      "@legal-aid-ai/legal-research/*": ["packages/legal-research/src/*"]
+      "@legal-aid-ai/shared": ["./packages/shared/src"],
+      "@legal-aid-ai/shared/*": ["./packages/shared/src/*"],
+      "@legal-aid-ai/ai": ["./packages/ai/src"],
+      "@legal-aid-ai/ai/*": ["./packages/ai/src/*"],
+      "@legal-aid-ai/legal-research": ["./packages/legal-research/src"],
+      "@legal-aid-ai/legal-research/*": ["./packages/legal-research/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "apps/admin"]
