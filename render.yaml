@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: legal-aid-ai-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: node apps/api/dist/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: Asia/Tashkent
+      - key: TELEGRAM_CHANNEL_ID
+        value: "@Huquq_study"
+      - key: TELEGRAM_ADMIN_IDS
+        value: "8348657980"
+      - key: AUTONOMOUS_MODE
+        value: "2"
+      - key: AI_PROVIDER
+        value: claude
+      - key: AI_MODEL
+        value: claude-3-5-sonnet-20241022
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        value: legal_aid_super_secure_jwt_secret_key_uzbekistan_2026
