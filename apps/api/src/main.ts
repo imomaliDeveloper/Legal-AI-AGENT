@@ -44,8 +44,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.APP_PORT || 3000;
-  await app.listen(port);
+  const port = process.env.PORT || process.env.APP_PORT || 3000;
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 LEGAL AID AI API server muvaffaqiyatli ishga tushdi: http://localhost:${port}/api/v1`);
   logger.log(`📚 Swagger hujjatlari: http://localhost:${port}/api/docs`);
