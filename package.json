@@ -1,0 +1,26 @@
+{
+  "name": "legal-aid-ai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"API,ADMIN\" -c \"blue,green\" \"npm run dev:api\" \"npm run dev:admin\"",
+    "dev:all": "concurrently -n \"API,ADMIN,BOT\" -c \"blue,green,yellow\" \"npm run dev:api\" \"npm run dev:admin\" \"npm run dev:bot\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:admin": "npm run dev -w apps/admin",
+    "dev:bot": "npm run dev -w apps/telegram-bot",
+    "build": "npm run build -w packages/shared && npm run build -w packages/ai && npm run build -w packages/legal-research && npm run build -w apps/api && npm run build -w apps/admin && npm run build -w apps/telegram-bot",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npx prisma generate --schema=prisma/schema.prisma",
+    "db:push": "npx prisma db push --schema=prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate dev --schema=prisma/schema.prisma",
+    "db:studio": "npx prisma studio --schema=prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

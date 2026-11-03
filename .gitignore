@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Build output
+dist/
+*/dist/
+*/*/dist/
+.next/
+*/.next/
+*/*/.next/
+out/
+build/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Coverage
+coverage/
+
+# Source maps
+*.js.map
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+*.tsbuildinfo
+.turbo/
+.cache/

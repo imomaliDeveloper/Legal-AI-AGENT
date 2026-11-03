@@ -1,0 +1,25 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY packages ./packages
+COPY apps/telegram-bot ./apps/telegram-bot
+
+RUN npm install
+RUN npm run build -w packages/shared
+RUN npm run build -w apps/telegram-bot
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/telegram-bot/dist ./apps/telegram-bot/dist
+COPY --from=builder /app/apps/telegram-bot/package.json ./apps/telegram-bot/package.json
+
+CMD ["node", "apps/telegram-bot/dist/index.js"]

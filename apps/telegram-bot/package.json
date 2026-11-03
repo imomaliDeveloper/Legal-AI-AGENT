@@ -1,0 +1,22 @@
+{
+  "name": "@legal-aid-ai/telegram-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@legal-aid-ai/shared": "*",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}

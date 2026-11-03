@@ -1,0 +1,645 @@
+// LEGAL AID AI - Prisma Schema
+// PostgreSQL database schema for AI-powered legal media management platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String   @map("password_hash")
+  fullName      String   @map("full_name")
+  role          UserRole @default(VIEWER)
+  telegramId    String?  @unique @map("telegram_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  approvals     Approval[]
+  auditLogs     AuditLog[]
+  posts         Post[]        @relation("PostAuthor")
+  editedPosts   Post[]        @relation("PostEditor")
+
+  @@map("users")
+}
+
+// ============================================================================
+// CONTENT MANAGEMENT
+// ============================================================================
+
+enum ContentStatus {
+  DISCOVERED
+  RESEARCHED
+  DRAFT
+  VERIFIED
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  REJECTED
+  FAILED
+  UNVERIFIED
+  ARCHIVED
+}
+
+enum ContentType {
+  NEWS
+  EDUCATIONAL_ARTICLE
+  CASE_STUDY
+  QUIZ
+  INFOGRAPHIC
+  QA_RESPONSE
+}
+
+enum LegalDomain {
+  CONSTITUTIONAL
+  CIVIL
+  CRIMINAL
+  ADMINISTRATIVE
+  LABOR
+  FAMILY
+  TAX
+  BUSINESS
+  HUMAN_RIGHTS
+  GENERAL
+}
+
+model Post {
+  id              String        @id @default(uuid())
+  title           String
+  slug            String        @unique
+  content         String        @db.Text
+  contentHtml     String?       @map("content_html") @db.Text
+  summary         String?       @db.Text
+  type            ContentType
+  status          ContentStatus @default(DRAFT)
+  legalDomain     LegalDomain   @default(GENERAL) @map("legal_domain")
+
+  // Original and edited versions
+  originalContent String?       @map("original_content") @db.Text
+  editedContent   String?       @map("edited_content") @db.Text
+  editNotes       String?       @map("edit_notes") @db.Text
+
+  // Metadata
+  tags            String[]      @default([])
+  priority        Int           @default(0)
+  language        String        @default("uz")
+
+  // Verification
+  isVerified              Boolean  @default(false) @map("is_verified")
+  verificationStatus      String?  @map("verification_status")
+  verificationNotes       String?  @map("verification_notes") @db.Text
+  verifiedAt              DateTime? @map("verified_at")
+
+  // Relations
+  authorId        String?       @map("author_id")
+  author          User?         @relation("PostAuthor", fields: [authorId], references: [id])
+  editorId        String?       @map("editor_id")
+  editor          User?         @relation("PostEditor", fields: [editorId], references: [id])
+
+  // Linked entities
+  legalReferences LegalReference[]
+  mediaAssets     MediaAsset[]
+  approvals       Approval[]
+  publications    TelegramPublication[]
+  scheduledPubs   ScheduledPublication[]
+  aiExecutions    AIExecution[]
+  caseStudy       CaseStudy?
+  quiz            Quiz?
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  publishedAt     DateTime?     @map("published_at")
+
+  @@index([status])
+  @@index([type])
+  @@index([legalDomain])
+  @@index([createdAt])
+  @@index([status, type])
+  @@map("posts")
+}
+
+// ============================================================================
+// LEGAL SOURCES & DOCUMENTS
+// ============================================================================
+
+enum SourceType {
+  OFFICIAL
+  NEWS
+  ACADEMIC
+  GOVERNMENT
+}
+
+model LegalSource {
+  id          String     @id @default(uuid())
+  name        String
+  baseUrl     String     @unique @map("base_url")
+  type        SourceType
+  isActive    Boolean    @default(true) @map("is_active")
+  priority    Int        @default(0)
+  description String?
+  lastChecked DateTime?  @map("last_checked")
+
+  documents   LegalDocument[]
+
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@map("legal_sources")
+}
+
+enum DocumentStatus {
+  ACTIVE
+  AMENDED
+  REPEALED
+  DRAFT_DOC
+  PENDING
+}
+
+enum DocumentChangeType {
+  NEW
+  AMENDMENT
+  REPEAL
+  UPDATE
+  CORRECTION
+}
+
+model LegalDocument {
+  id               String             @id @default(uuid())
+  title            String
+  documentNumber   String?            @map("document_number")
+  documentType     String?            @map("document_type")
+  publicationDate  DateTime?          @map("publication_date")
+  effectiveDate    DateTime?          @map("effective_date")
+  officialUrl      String?            @unique @map("official_url")
+  status           DocumentStatus     @default(ACTIVE)
+  changeType       DocumentChangeType @default(NEW) @map("change_type")
+
+  // Content
+  summary          String?            @db.Text
+  fullText         String?            @map("full_text") @db.Text
+
+  // Verification
+  isVerified       Boolean            @default(false) @map("is_verified")
+  retrievedAt      DateTime           @default(now()) @map("retrieved_at")
+  verifiedAt       DateTime?          @map("verified_at")
+
+  // Source
+  sourceId         String             @map("source_id")
+  source           LegalSource        @relation(fields: [sourceId], references: [id])
+
+  references       LegalReference[]
+
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  @@index([publicationDate])
+  @@index([effectiveDate])
+  @@index([status])
+  @@index([sourceId])
+  @@map("legal_documents")
+}
+
+model LegalReference {
+  id              String        @id @default(uuid())
+
+  // What this reference points to
+  documentId      String?       @map("document_id")
+  document        LegalDocument? @relation(fields: [documentId], references: [id])
+
+  // Which post uses this reference
+  postId          String?       @map("post_id")
+  post            Post?         @relation(fields: [postId], references: [id])
+
+  // Reference details
+  articleNumber   String?       @map("article_number")
+  clauseNumber    String?       @map("clause_number")
+  citationText    String?       @map("citation_text") @db.Text
+  officialUrl     String?       @map("official_url")
+
+  // Verification
+  isVerified      Boolean       @default(false) @map("is_verified")
+  verifiedAt      DateTime?     @map("verified_at")
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@index([postId])
+  @@map("legal_references")
+}
+
+// ============================================================================
+// CASE STUDIES
+// ============================================================================
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model CaseStudy {
+  id              String        @id @default(uuid())
+  title           String
+  scenario        String        @db.Text
+  legalQuestion   String        @map("legal_question") @db.Text
+  legalDomain     LegalDomain   @map("legal_domain")
+  difficulty      DifficultyLevel
+
+  // Answer options (stored as JSON)
+  options         Json          // Array of { id, text, isCorrect }
+  correctAnswer   String        @map("correct_answer")
+  explanation     String        @db.Text
+
+  // Legal basis
+  applicableLaws  String[]      @map("applicable_laws") @default([])
+  sourceLinks     String[]      @map("source_links") @default([])
+
+  // Status
+  status          ContentStatus @default(DRAFT)
+  isVerified      Boolean       @default(false) @map("is_verified")
+
+  // Linked post (when published)
+  postId          String?       @unique @map("post_id")
+  post            Post?         @relation(fields: [postId], references: [id])
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([legalDomain])
+  @@index([difficulty])
+  @@index([status])
+  @@map("case_studies")
+}
+
+// ============================================================================
+// QUIZZES
+// ============================================================================
+
+enum QuestionType {
+  SINGLE_ANSWER
+  MULTIPLE_ANSWER
+}
+
+model Quiz {
+  id            String          @id @default(uuid())
+  title         String
+  description   String?         @db.Text
+  legalDomain   LegalDomain     @map("legal_domain")
+  difficulty    DifficultyLevel
+
+  questions     QuizQuestion[]
+
+  // Status
+  status        ContentStatus   @default(DRAFT)
+  isVerified    Boolean         @default(false) @map("is_verified")
+
+  // Linked post
+  postId        String?         @unique @map("post_id")
+  post          Post?           @relation(fields: [postId], references: [id])
+
+  // Stats
+  totalAttempts Int             @default(0) @map("total_attempts")
+
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  @@index([legalDomain])
+  @@index([difficulty])
+  @@index([status])
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            String       @id @default(uuid())
+  quizId        String       @map("quiz_id")
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  questionText  String       @map("question_text") @db.Text
+  questionType  QuestionType @default(SINGLE_ANSWER) @map("question_type")
+  explanation   String?      @db.Text
+  orderIndex    Int          @default(0) @map("order_index")
+
+  // Legal reference for answer verification
+  legalBasis    String?      @map("legal_basis") @db.Text
+  sourceUrl     String?      @map("source_url")
+
+  options       QuizOption[]
+
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([quizId])
+  @@map("quiz_questions")
+}
+
+model QuizOption {
+  id          String       @id @default(uuid())
+  questionId  String       @map("question_id")
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  optionText  String       @map("option_text")
+  isCorrect   Boolean      @default(false) @map("is_correct")
+  orderIndex  Int          @default(0) @map("order_index")
+
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([questionId])
+  @@map("quiz_options")
+}
+
+// ============================================================================
+// SUBSCRIBERS & QUESTIONS
+// ============================================================================
+
+model Subscriber {
+  id            String   @id @default(uuid())
+  telegramId    String   @unique @map("telegram_id")
+  username      String?
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  languageCode  String?  @map("language_code")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  questions     SubscriberQuestion[]
+
+  joinedAt      DateTime @default(now()) @map("joined_at")
+  lastActiveAt  DateTime @default(now()) @map("last_active_at")
+
+  @@map("subscribers")
+}
+
+enum QuestionStatus {
+  RECEIVED
+  PROCESSING
+  ANSWERED
+  PENDING_REVIEW
+  REVIEWED
+  PUBLISHED
+  REJECTED
+}
+
+model SubscriberQuestion {
+  id              String         @id @default(uuid())
+  subscriberId    String         @map("subscriber_id")
+  subscriber      Subscriber     @relation(fields: [subscriberId], references: [id])
+
+  questionText    String         @map("question_text") @db.Text
+  detectedDomain  LegalDomain?   @map("detected_domain")
+
+  // AI response
+  aiResponse      String?        @map("ai_response") @db.Text
+  responseStatus  QuestionStatus @default(RECEIVED) @map("response_status")
+
+  // Review
+  reviewedBy      String?        @map("reviewed_by")
+  reviewNotes     String?        @map("review_notes") @db.Text
+  finalResponse   String?        @map("final_response") @db.Text
+
+  // Telegram
+  telegramMessageId String?      @map("telegram_message_id")
+  responseSentAt    DateTime?    @map("response_sent_at")
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([subscriberId])
+  @@index([responseStatus])
+  @@index([detectedDomain])
+  @@map("subscriber_questions")
+}
+
+// ============================================================================
+// MEDIA ASSETS
+// ============================================================================
+
+enum MediaType {
+  IMAGE
+  INFOGRAPHIC
+  THUMBNAIL
+  TEMPLATE
+}
+
+model MediaAsset {
+  id            String    @id @default(uuid())
+  filename      String
+  originalName  String    @map("original_name")
+  mimeType      String    @map("mime_type")
+  fileSize      Int       @map("file_size")
+  width         Int?
+  height        Int?
+
+  // Storage
+  storagePath   String    @map("storage_path")
+  publicUrl     String?   @map("public_url")
+
+  // Metadata
+  mediaType     MediaType @map("media_type")
+  altText       String?   @map("alt_text")
+  description   String?
+  provider      String?
+
+  // Relations
+  postId        String?   @map("post_id")
+  post          Post?     @relation(fields: [postId], references: [id])
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([postId])
+  @@index([mediaType])
+  @@map("media_assets")
+}
+
+// ============================================================================
+// APPROVAL WORKFLOW
+// ============================================================================
+
+enum ApprovalAction {
+  APPROVE
+  REJECT
+  EDIT
+  REQUEST_CHANGES
+}
+
+model Approval {
+  id              String         @id @default(uuid())
+  postId          String         @map("post_id")
+  post            Post           @relation(fields: [postId], references: [id])
+
+  reviewerId      String         @map("reviewer_id")
+  reviewer        User           @relation(fields: [reviewerId], references: [id])
+
+  action          ApprovalAction
+  comments        String?        @db.Text
+
+  // Content snapshot at time of approval
+  contentSnapshot String?        @map("content_snapshot") @db.Text
+  editedContent   String?        @map("edited_content") @db.Text
+
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  @@index([postId])
+  @@index([reviewerId])
+  @@index([action])
+  @@map("approvals")
+}
+
+// ============================================================================
+// SCHEDULING & PUBLISHING
+// ============================================================================
+
+model ScheduledPublication {
+  id            String        @id @default(uuid())
+  postId        String        @map("post_id")
+  post          Post          @relation(fields: [postId], references: [id])
+
+  scheduledFor  DateTime      @map("scheduled_for")
+  timezone      String        @default("Asia/Tashkent")
+
+  // Status
+  isExecuted    Boolean       @default(false) @map("is_executed")
+  executedAt    DateTime?     @map("executed_at")
+  failedAt      DateTime?     @map("failed_at")
+  failureReason String?       @map("failure_reason")
+  retryCount    Int           @default(0) @map("retry_count")
+
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([scheduledFor])
+  @@index([isExecuted])
+  @@map("scheduled_publications")
+}
+
+model TelegramPublication {
+  id                String   @id @default(uuid())
+  postId            String   @map("post_id")
+  post              Post     @relation(fields: [postId], references: [id])
+
+  channelId         String   @map("channel_id")
+  messageId         String?  @map("message_id")
+  messageType       String   @map("message_type")
+
+  // Content sent
+  contentSent       String   @map("content_sent") @db.Text
+
+  // Status
+  isSuccessful      Boolean  @default(false) @map("is_successful")
+  errorMessage      String?  @map("error_message")
+
+  // Engagement
+  viewCount         Int?     @map("view_count")
+  forwardCount      Int?     @map("forward_count")
+  reactionCount     Int?     @map("reaction_count")
+
+  publishedAt       DateTime @default(now()) @map("published_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([postId, channelId])
+  @@index([channelId])
+  @@index([publishedAt])
+  @@map("telegram_publications")
+}
+
+// ============================================================================
+// AI EXECUTION TRACKING
+// ============================================================================
+
+model AIExecution {
+  id              String   @id @default(uuid())
+
+  // What was requested
+  taskType        String   @map("task_type")
+  provider        String
+  model           String
+
+  // Input/Output
+  promptUsed      String   @map("prompt_used") @db.Text
+  systemPrompt    String?  @map("system_prompt") @db.Text
+  resultContent   String?  @map("result_content") @db.Text
+
+  // Performance
+  tokensUsed      Int?     @map("tokens_used")
+  processingTimeMs Int?    @map("processing_time_ms")
+
+  // Status
+  isSuccessful    Boolean  @default(false) @map("is_successful")
+  errorMessage    String?  @map("error_message")
+
+  // Relations
+  postId          String?  @map("post_id")
+  post            Post?    @relation(fields: [postId], references: [id])
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([taskType])
+  @@index([provider])
+  @@index([createdAt])
+  @@index([isSuccessful])
+  @@map("ai_executions")
+}
+
+// ============================================================================
+// AUDIT & SYSTEM
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+
+  userId      String?  @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id])
+
+  action      String
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id")
+
+  // Details
+  details     Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+
+  // Change tracking
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  category    String   @default("general")
+  isSecret    Boolean  @default(false) @map("is_secret")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("system_settings")
+}

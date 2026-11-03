@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: legal-aid-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: legal_aid_user
+      POSTGRES_PASSWORD: legal_aid_secure_password_2026
+      POSTGRES_DB: legal_aid_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legal_aid_user -d legal_aid_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: legal-aid-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.api
+    container_name: legal-aid-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+
+  admin:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.admin
+    container_name: legal-aid-admin
+    restart: always
+    depends_on:
+      - api
+    env_file:
+      - .env
+    ports:
+      - "3001:3001"
+
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.bot
+    container_name: legal-aid-telegram-bot
+    restart: always
+    depends_on:
+      - api
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
+  redis_data:
