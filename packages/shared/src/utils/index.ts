@@ -70,6 +70,8 @@ export function generateSlug(text: string): string {
     .slice(0, 200);
 }
 
+declare const setTimeout: (handler: (...args: any[]) => void, timeout?: number) => any;
+
 /**
  * Promise-based sleep utility.
  */

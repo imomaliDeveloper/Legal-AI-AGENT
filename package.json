@@ -23,6 +23,7 @@
     "db:studio": "npx prisma studio --schema=prisma/schema.prisma"
   },
   "devDependencies": {
+    "@types/node": "^20.17.6",
     "concurrently": "^10.0.6"
   }
 }
